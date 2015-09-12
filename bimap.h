@@ -97,15 +97,15 @@ struct half_node
             half_node* next = right->min();
             bool next_is_left_child = next->is_left_child();
 
+            std::swap(left, next->left);
+            if (left)
+                left->parent = this;
+            if (next->left)
+                next->left->parent = next;
+
             if (next == right)
             {
                 assert(!next_is_left_child);
-
-                std::swap(left, next->left);
-                if (left)
-                    left->parent = this;
-                if (next->left)
-                    next->left->parent = next;
 
                 right = next->right;
                 if (right)
@@ -121,12 +121,6 @@ struct half_node
             }
             else
             {
-                std::swap(left, next->left);
-                if (left)
-                    left->parent = this;
-                if (next->left)
-                    next->left->parent = next;
-
                 std::swap(right, next->right);
                 if (right)
                     right->parent = this;
