@@ -4,13 +4,30 @@
 #include <iostream>
 #include "bimap.h"
 
-//template struct bimap<int, std::string>;
+template struct bimap<int, std::string>;
+template struct bimap<int, int>;
 
 using namespace std;
 
 int rand_elem()
 {
     return rand() % 16;
+}
+
+template <typename BiMapIterator, typename MapIterator>
+void check_content(BiMapIterator bimap_begin, BiMapIterator bimap_end,
+                   MapIterator map_begin, MapIterator map_end)
+{
+    while (bimap_begin != bimap_end)
+    {
+        assert(*bimap_begin == map_begin->first);
+        assert(*bimap_begin.flip() == map_begin->second);
+
+        ++bimap_begin;
+        ++map_begin;
+    }
+
+    assert(map_begin == map_end);
 }
 
 int main()
@@ -24,6 +41,9 @@ int main()
         size_t n1 = a.size();
         assert(n1 == left_to_right.size());
         assert(n1 == right_to_left.size());
+
+        check_content(a.begin_left(), a.end_left(), left_to_right.begin(), left_to_right.end());
+        check_content(a.begin_right(), a.end_right(), right_to_left.begin(), right_to_left.end());
 
         bool is_left = rand() % 2;
         int elem = rand_elem();

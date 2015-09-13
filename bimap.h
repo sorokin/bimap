@@ -228,104 +228,140 @@ struct half_node
 };
 
 template <typename Left, typename Right>
+struct node
+{
+    node()
+    {}
+
+    node(Left left, Right right)
+        : left_half(left)
+        , right_half(right)
+    {}
+
+    half_node<Left> left_half;
+    half_node<Right> right_half;
+};
+
+template <typename Left, typename Right, bool IsLeft>
+struct node_traits;
+
+template <typename Left, typename Right>
+struct node_traits<Left, Right, true>
+{
+    typedef node<Left, Right> node_t;
+    typedef Left value_type;
+    typedef half_node<Left> half_node_type;
+
+    static half_node_type* get_half_node(node_t* n)
+    {
+        return &n->left_half;
+    }
+
+    static node_t* get_node(half_node_type* hnode)
+    {
+        return container_of(hnode, node_t, left_half);
+    }
+};
+
+template <typename Left, typename Right>
+struct node_traits<Left, Right, false>
+{
+    typedef node<Left, Right> node_t;
+    typedef Right value_type;
+    typedef half_node<Right> half_node_type;
+
+    static half_node_type* get_half_node(node_t* n)
+    {
+        return &n->right_half;
+    }
+
+    static node_t* get_node(half_node_type* hnode)
+    {
+        return container_of(hnode, node_t, right_half);
+    }
+};
+
+template <typename Left, typename Right>
 struct bimap
 {
     typedef Left left_t;
     typedef Right right_t;
+    typedef node<left_t, right_t> node_t;
 
-    struct left_iterator
+    template <bool IsLeft>
+    struct traits;
+
+    template <bool IsLeft>
+    struct iterator
     {
-        left_iterator(half_node<Left>* node)
-            : node(node)
+        static constexpr bool is_left = IsLeft;
+        typedef typename std::conditional<is_left, left_t, right_t>::type value_type;
+        typedef half_node<value_type> half_node_type;
+
+        iterator(node_t* n)
+            : hnode(node_traits<left_t, right_t, is_left>::get_half_node(n))
         {}
 
-        left_iterator& operator++()
+        iterator(half_node_type* hnode)
+            : hnode(hnode)
+        {}
+
+        value_type const& operator*() const
         {
-            node = node->next();
+            return hnode->data;
+        }
+
+        iterator& operator++()
+        {
+            hnode = hnode->next();
             return *this;
         }
 
-        left_iterator operator++(int)
+        iterator operator++(int)
         {
-            left_iterator old = *this;
+            iterator old = *this;
             ++*this;
             return old;
         }
 
-        left_iterator& operator--()
+        iterator& operator--()
         {
-            node = node->prev();
+            hnode = hnode->prev();
             return *this;
         }
 
-        left_iterator operator--(int)
+        iterator operator--(int)
         {
-            left_iterator old = *this;
+            iterator old = *this;
             --*this;
             return old;
         }
 
-        friend bool operator!=(left_iterator a, left_iterator b)
+        iterator<!is_left> flip() const
         {
-            return a.node != b.node;
+            return iterator<!is_left>(get_node());
         }
 
-        half_node<Left>* node;
+        friend bool operator==(iterator a, iterator b)
+        {
+            return a.hnode != b.hnode;
+        }
+
+        friend bool operator!=(iterator a, iterator b)
+        {
+            return a.hnode != b.hnode;
+        }
+
+        node_t* get_node() const
+        {
+            return node_traits<left_t, right_t, is_left>::get_node(hnode);
+        }
+
+        half_node_type* hnode;
     };
 
-    struct right_iterator
-    {
-        right_iterator(half_node<Right>* node)
-            : node(node)
-        {}
-
-        right_iterator& operator++()
-        {
-            node = node->next();
-            return *this;
-        }
-
-        right_iterator operator++(int)
-        {
-            right_iterator old = *this;
-            ++*this;
-            return old;
-        }
-
-        right_iterator& operator--()
-        {
-            node = node->prev();
-            return *this;
-        }
-
-        right_iterator operator--(int)
-        {
-            right_iterator old = *this;
-            --*this;
-            return old;
-        }
-
-        friend bool operator!=(right_iterator a, right_iterator b)
-        {
-            return a.node != b.node;
-        }
-
-        half_node<Right>* node;
-    };
-
-    struct node
-    {
-        node()
-        {}
-
-        node(left_t left, right_t right)
-            : left_half(left)
-            , right_half(right)
-        {}
-
-        half_node<Left> left_half;
-        half_node<Right> right_half;
-    };
+    typedef iterator<true> left_iterator;
+    typedef iterator<false> right_iterator;
 
     bimap()
         : fake_root()
@@ -353,10 +389,10 @@ struct bimap
 
     std::pair<left_iterator, right_iterator> insert(left_t left, right_t right)
     {
-        node* new_node = new node(left, right);
+        node_t* new_node = new node_t(left, right);
         fake_root.left_half.insert_to_left(new_node->left_half);
         fake_root.right_half.insert_to_left(new_node->right_half);
-        auto t = std::make_pair(left_iterator(&new_node->left_half), right_iterator(&new_node->right_half));
+        auto t = std::make_pair(left_iterator(new_node), right_iterator(new_node));
 
         check_invariant();
 
@@ -368,7 +404,7 @@ struct bimap
         left_iterator t = it;
         ++t;
 
-        erase_node(node_by_left_half(it.node));
+        erase_node(it.get_node());
 
         check_invariant();
         return t;
@@ -379,28 +415,42 @@ struct bimap
         right_iterator t = it;
         ++t;
 
-        erase_node(node_by_right_half(it.node));
+        erase_node(it.get_node());
 
         check_invariant();
         return t;
     }
 
+    left_iterator begin_left() const
+    {
+        return left_iterator(fake_root.left_half.min());
+    }
+
+    right_iterator begin_right() const
+    {
+        return right_iterator(fake_root.right_half.min());
+    }
+
     left_iterator end_left() const
     {
-        return left_iterator(&fake_root.left_half);
+        return left_iterator(&fake_root);
     }
 
     right_iterator end_right() const
     {
-        return right_iterator(&fake_root.right_half);
+        return right_iterator(&fake_root);
+    }
+
+    bool empty() const
+    {
+        return fake_root.left_half.left != nullptr;
     }
 
     size_t size() const
     {
-        size_t n1 = fake_root.left_half.left->size();
-        size_t n2 = fake_root.right_half.left->size();
-        assert(n1 == n2);
-        return n1;
+        size_t n = fake_root.left_half.left->size();
+        assert(n == fake_root.right_half.left->size());
+        return n;
     }
 
 private:
@@ -411,7 +461,7 @@ private:
         size();
     }
 
-    void erase_node(node* node)
+    void erase_node(node_t* node)
     {
         assert(node != &fake_root);
         node->left_half.erase();
@@ -421,18 +471,8 @@ private:
         delete node;
     }
 
-    node* node_by_left_half(half_node<Left>* hnode)
-    {
-        return container_of(hnode, node, left_half);
-    }
-
-    node* node_by_right_half(half_node<Right>* hnode)
-    {
-        return container_of(hnode, node, right_half);
-    }
-
 private:
-    mutable node fake_root;
+    mutable node_t fake_root;
 };
 
 #endif // BIMAP_H
