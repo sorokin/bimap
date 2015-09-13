@@ -198,6 +198,7 @@ struct half_node
 
     void check_invariant()
     {
+#ifndef NDEBUG
         assert(left != this);
         assert(right != this);
 
@@ -211,6 +212,7 @@ struct half_node
             assert(right->parent == this);
             right->check_invariant();
         }
+#endif
     }
 
     size_t size()
@@ -248,36 +250,36 @@ struct node_traits;
 template <typename Left, typename Right>
 struct node_traits<Left, Right, true>
 {
-    typedef node<Left, Right> node_t;
+    typedef node<Left, Right> node_type;
     typedef Left value_type;
     typedef half_node<Left> half_node_type;
 
-    static half_node_type* get_half_node(node_t* n)
+    static half_node_type* get_half_node(node_type* n)
     {
         return &n->left_half;
     }
 
-    static node_t* get_node(half_node_type* hnode)
+    static node_type* get_node(half_node_type* hnode)
     {
-        return container_of(hnode, node_t, left_half);
+        return container_of(hnode, node_type, left_half);
     }
 };
 
 template <typename Left, typename Right>
 struct node_traits<Left, Right, false>
 {
-    typedef node<Left, Right> node_t;
+    typedef node<Left, Right> node_type;
     typedef Right value_type;
     typedef half_node<Right> half_node_type;
 
-    static half_node_type* get_half_node(node_t* n)
+    static half_node_type* get_half_node(node_type* n)
     {
         return &n->right_half;
     }
 
-    static node_t* get_node(half_node_type* hnode)
+    static node_type* get_node(half_node_type* hnode)
     {
-        return container_of(hnode, node_t, right_half);
+        return container_of(hnode, node_type, right_half);
     }
 };
 
@@ -286,7 +288,7 @@ struct bimap
 {
     typedef Left left_t;
     typedef Right right_t;
-    typedef node<left_t, right_t> node_t;
+    typedef node<left_t, right_t> node_type;
 
     template <bool IsLeft>
     struct traits;
@@ -298,7 +300,7 @@ struct bimap
         typedef typename std::conditional<is_left, left_t, right_t>::type value_type;
         typedef half_node<value_type> half_node_type;
 
-        iterator(node_t* n)
+        iterator(node_type* n)
             : hnode(node_traits<left_t, right_t, is_left>::get_half_node(n))
         {}
 
@@ -352,7 +354,7 @@ struct bimap
             return a.hnode != b.hnode;
         }
 
-        node_t* get_node() const
+        node_type* get_node() const
         {
             return node_traits<left_t, right_t, is_left>::get_node(hnode);
         }
@@ -389,7 +391,7 @@ struct bimap
 
     std::pair<left_iterator, right_iterator> insert(left_t left, right_t right)
     {
-        node_t* new_node = new node_t(left, right);
+        node_type* new_node = new node_type(left, right);
         fake_root.left_half.insert_to_left(new_node->left_half);
         fake_root.right_half.insert_to_left(new_node->right_half);
         auto t = std::make_pair(left_iterator(new_node), right_iterator(new_node));
@@ -399,20 +401,10 @@ struct bimap
         return t;
     }
 
-    left_iterator erase_left(left_iterator it)
+    template <bool IsLeft>
+    iterator<IsLeft> erase(iterator<IsLeft> it)
     {
-        left_iterator t = it;
-        ++t;
-
-        erase_node(it.get_node());
-
-        check_invariant();
-        return t;
-    }
-
-    right_iterator erase_right(right_iterator it)
-    {
-        right_iterator t = it;
+        iterator<IsLeft> t = it;
         ++t;
 
         erase_node(it.get_node());
@@ -456,12 +448,14 @@ struct bimap
 private:
     void check_invariant()
     {
+#ifndef NDEBUG
         fake_root.left_half.check_invariant();
         fake_root.right_half.check_invariant();
         size();
+#endif
     }
 
-    void erase_node(node_t* node)
+    void erase_node(node_type* node)
     {
         assert(node != &fake_root);
         node->left_half.erase();
@@ -472,7 +466,7 @@ private:
     }
 
 private:
-    mutable node_t fake_root;
+    mutable node_type fake_root;
 };
 
 #endif // BIMAP_H

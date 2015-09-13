@@ -36,7 +36,7 @@ int main()
     std::map<int, int> left_to_right;
     std::map<int, int> right_to_left;
 
-    for (size_t niter = 0; niter != 100000; ++niter)
+    for (size_t niter = 0; niter != 1000000; ++niter)
     {
         size_t n1 = a.size();
         assert(n1 == left_to_right.size());
@@ -66,9 +66,9 @@ int main()
         if (present_in_map)
         {
             if (is_left)
-                a.erase_left(a.find_left(elem));
+                a.erase(a.find_left(elem));
             else
-                a.erase_right(a.find_right(elem));
+                a.erase(a.find_right(elem));
 
             if (is_left)
             {
