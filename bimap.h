@@ -310,6 +310,11 @@ struct bimap
             return hnode->data;
         }
 
+        value_type const* operator->() const
+        {
+            return &hnode->data;
+        }
+
         iterator& operator++()
         {
             hnode = hnode->next();
