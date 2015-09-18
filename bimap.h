@@ -291,9 +291,6 @@ struct bimap
     typedef node<left_t, right_t> node_type;
 
     template <bool IsLeft>
-    struct traits;
-
-    template <bool IsLeft>
     struct iterator
     {
         static constexpr bool is_left = IsLeft;
