@@ -30,17 +30,17 @@ struct half_node
         , right()
     {}
 
-    half_node* find(Data const& key)
+    friend half_node* find(half_node* hnode, Data const& key)
     {
-        if (this == nullptr)
+        if (hnode == nullptr)
             return nullptr;
 
-        if (key < data)
-            return left->find(key);
-        else if (key == data)
-            return this;
+        if (key < hnode->data)
+            return find(hnode->left, key);
+        else if (key == hnode->data)
+            return hnode;
         else
-            return right->find(key);
+            return find(hnode->right, key);
     }
 
     void insert(half_node<Data>& target)
@@ -186,14 +186,14 @@ struct half_node
         return t->parent;
     }
 
-    void delete_this()
+    friend void delete_tree(half_node* hnode)
     {
-        if (this == nullptr)
+        if (hnode == nullptr)
             return;
 
-        left->delete_this();
-        right->delete_this();
-        delete this;
+        delete_tree(hnode->left);
+        delete_tree(hnode->right);
+        delete hnode;
     }
 
     void check_invariant()
@@ -215,12 +215,12 @@ struct half_node
 #endif
     }
 
-    size_t size()
+    friend size_t tree_size(half_node const* hnode)
     {
-        if (this == nullptr)
+        if (hnode == nullptr)
             return 0;
 
-        return 1 + left->size() + right->size();
+        return 1 + tree_size(hnode->left) + tree_size(hnode->right);
     }
 
     Data data;
@@ -294,8 +294,8 @@ struct bimap
     struct iterator
     {
         static constexpr bool is_left = IsLeft;
-        typedef typename std::conditional<is_left, left_t, right_t>::type value_type;
-        typedef half_node<value_type> half_node_type;
+        typedef typename node_traits<left_t, right_t, is_left>::value_type value_type;
+        typedef typename node_traits<left_t, right_t, is_left>::half_node_type half_node_type;
 
         iterator(node_type* n)
             : hnode(node_traits<left_t, right_t, is_left>::get_half_node(n))
@@ -376,18 +376,18 @@ struct bimap
 
     ~bimap()
     {
-        fake_root.left_half.left->delete_this();
+        delete_tree(fake_root.left_half.left);
     }
 
     left_iterator find_left(left_t left)
     {
-        auto* hnode = fake_root.left_half.left->find(left);
+        auto* hnode = find(fake_root.left_half.left, left);
         return hnode ? left_iterator(hnode) : end_left();
     }
 
     right_iterator find_right(right_t right)
     {
-        auto* hnode = fake_root.right_half.left->find(right);
+        auto* hnode = find(fake_root.right_half.left, right);
         return hnode ? right_iterator(hnode) : end_right();
     }
 
@@ -442,8 +442,8 @@ struct bimap
 
     size_t size() const
     {
-        size_t n = fake_root.left_half.left->size();
-        assert(n == fake_root.right_half.left->size());
+        size_t n = tree_size(fake_root.left_half.left);
+        assert(n == tree_size(fake_root.right_half.left));
         return n;
     }
 
