@@ -348,7 +348,7 @@ struct bimap
 
         friend bool operator==(iterator a, iterator b)
         {
-            return a.hnode != b.hnode;
+            return a.hnode == b.hnode;
         }
 
         friend bool operator!=(iterator a, iterator b)
